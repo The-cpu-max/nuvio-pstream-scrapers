@@ -1,0 +1,32 @@
+{
+  "name": "P-Stream Scrapers",
+  "version": "1.0.0",
+  "scrapers": [
+    {
+      "id": "fingerapi",
+      "name": "🔥 Finger API",
+      "description": "P-Stream Finger API - Movies & TV Shows (English)",
+      "version": "1.0.0",
+      "author": "P-Stream Team",
+      "supportedTypes": ["movie", "tv"],
+      "filename": "providers/fingerapi.js",
+      "enabled": true,
+      "formats": ["mp4", "m3u8"],
+      "logo": "https://pstream.net/favicon.ico",
+      "contentLanguage": ["en"]
+    },
+    {
+      "id": "xprime",
+      "name": "🤝 xprime.tv",
+      "description": "xprime.tv - Movies & TV Shows multi-quality streams",
+      "version": "1.0.0",
+      "author": "P-Stream Team",
+      "supportedTypes": ["movie", "tv"],
+      "filename": "providers/xprime.js",
+      "enabled": true,
+      "formats": ["mp4", "m3u8"],
+      "logo": "https://xprime.tv/favicon.ico",
+      "contentLanguage": ["en"]
+    }
+  ]
+}
