@@ -1,12 +1,12 @@
 {
   "name": "P-Stream Scrapers",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "scrapers": [
     {
       "id": "fingerapi",
-      "name": "🔥 Finger API",
-      "description": "P-Stream Finger API - Movies & TV Shows (English)",
-      "version": "1.0.0",
+      "name": "🔴 Finger API",
+      "description": "P-Stream Finger API - Movies & TV Shows (English) [API currently offline - multi-endpoint fallback]",
+      "version": "1.1.0",
       "author": "P-Stream Team",
       "supportedTypes": ["movie", "tv"],
       "filename": "providers/fingerapi.js",
@@ -18,8 +18,8 @@
     {
       "id": "xprime",
       "name": "XPrime",
-      "description": "xprime.tv - Multi-quality streams",
-      "version": "1.0.0",
+      "description": "xprime.stream - Multi-quality streams via backend.xprime.tv",
+      "version": "1.1.0",
       "author": "P-Stream Team",
       "supportedTypes": ["movie", "tv"],
       "filename": "providers/xprime.js",
@@ -39,12 +39,12 @@
       "enabled": true,
       "formats": ["mp4", "m3u8"],
       "contentLanguage": ["en"],
-      "rank": 310
+      "rank": 100
     },
     {
       "id": "primesrc",
       "name": "PrimeSrc",
-      "description": "PrimeSrc - Multiple embed servers",
+      "description": "PrimeSrc - Alternative streaming source",
       "version": "1.0.0",
       "author": "P-Stream Team",
       "supportedTypes": ["movie", "tv"],
@@ -52,20 +52,20 @@
       "enabled": true,
       "formats": ["mp4", "m3u8"],
       "contentLanguage": ["en"],
-      "rank": 168
+      "rank": 150
     },
     {
       "id": "rgshows",
       "name": "RGShows",
-      "description": "RGShows - HLS streams for movies and TV shows",
+      "description": "RGShows - Movies & TV Shows",
       "version": "1.0.0",
       "author": "P-Stream Team",
       "supportedTypes": ["movie", "tv"],
       "filename": "providers/rgshows.js",
       "enabled": true,
-      "formats": ["m3u8"],
+      "formats": ["mp4", "m3u8"],
       "contentLanguage": ["en"],
-      "rank": 176
+      "rank": 120
     }
   ]
 }
