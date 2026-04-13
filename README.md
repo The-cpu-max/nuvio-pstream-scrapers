@@ -4,87 +4,64 @@ Nuvio Local Scrapers based on P-Stream providers. Supports 5 active servers.
 
 ## 🔥 Available Scrapers
 
-| Scraper | Description | Quality | Language | Rank |
-|---|---|---|---|---|
-| 🔥 Finger API | P-Stream FedAPI direct links | 4K / 1080p / 720p | EN | 300 |
-| 🟡 XPrime | xprime.tv multi-quality streams | 1080p / 720p / Auto | EN | 200 |
-| 🔥 VidLink | vidlink.pro - encrypted TMDB streams | 4K / 1080p / 720p | EN | 310 |
-| 🟢 PrimeSrc | primesrc.me - multi-embed servers | 1080p / 720p | EN | 168 |
-| 🟤 RGShows | rgshows.ru - HLS streams | 1080p / 720p | EN | 176 |
+| Scraper | Description | Quality | Language | Rank | Status |
+|---|---|---|---|---|---|
+| 🔴 Finger API | P-Stream FedAPI direct links | 4K / 1080p / 720p | EN | 300 | Offline (multi-endpoint fallback) |
+| XPrime | xprime.stream multi-quality streams | 1080p / 720p / Auto | EN | 200 | ✅ Active |
+| 🔥 VidLink | vidlink.pro - encrypted TMDB streams | 4K / 1080p / 720p | EN | 310 | ✅ Active |
+| PrimeSrc | primesrc.me - multi-embed servers | 1080p / 720p | EN | 168 | ✅ Active |
+| 🔴 RGShows | reshows.ru - HLS streams | 1080p / 720p | EN | 176 | Unknown |
 
-## 🚀 Installation
+## 💻 Provider Details
 
-1. Open **Nuvio** app
-2. Go to **Settings** → **Local Scrapers**
-3. Add this manifest URL:
-   ```
-   https://raw.githubusercontent.com/The-cpu-max/nuvio-pstream-scrapers/main/manifest.json
-   ```
-4. All 5 scrapers will be available automatically
+### 🔴 Finger API (fingerapi.js)
+- **Backend:** FedAPI (fed-api-db.pstream.mov, fedapi.xyz) - **Currently Offline**
+- **Fallback:** Tries 5 known endpoints automatically
+- **Type:** Direct stream URLs (mp4/m3u8)
+- **Subtitles:** Yes (multi-language)
 
-## 📁 Repository Structure
+### XPrime (xprime.js)
+- **Backend:** backend.xprime.tv + xk4l.mzt4pr8wlkxnv0qsha5g.website player
+- **Token:** Verification token required (fetched from player page)
+- **Type:** Direct stream URLs with player fallback
+- **Subtitles:** Via backend
 
-```
-nuvio-pstream-scrapers/
-├── manifest.json              # Main manifest file for Nuvio
-├── README.md
-└── providers/
-    ├── fingerapi.js           # Finger API / FedAPI (rank 300)
-    ├── xprime.js              # XPrime.tv (rank 200)
-    ├── vidlink.js             # VidLink (rank 310)
-    ├── primesrc.js            # PrimeSrc (rank 168)
-    └── rgshows.js             # RGShows (rank 176)
-```
+### 🔥 VidLink (vidlink.js)
+- **Backend:** vidlink.pro API
+- **Method:** Encrypted TMDB ID lookup
+- **Type:** HLS/MP4 streams
 
-## ℹ️ Provider Details
+### PrimeSrc (primesrc.js)
+- **Backend:** primesrc.me
+- **Method:** Multi-embed server selection
+- **Type:** Direct stream URLs
 
-### 🔥 Finger API (FedAPI)
-- **URL:** `https://mznxiwqjdiq00239q.space`
-- **Requires:** P-Stream user token (febboxKey from localStorage)
-- **Format:** MP4 + HLS, multi-quality
-- **Note:** Needs login at pstream.net first
+### RGShows (rgshows.js)
+- **Backend:** reshows.ru
+- **Method:** HLS stream extraction
+- **Type:** m3u8 streams
 
-### 🟡 XPrime
-- **URL:** `https://xprime.tv`
-- **Format:** HLS streams
-- **Note:** Direct API scrape
+## 🚀 Usage
 
-### 🔥 VidLink
-- **URL:** `https://vidlink.pro/api/b`
-- **Encryption:** via `enc-dec.app/api`
-- **Format:** File (MP4) + HLS, multi-quality with captions
-- **Note:** Most recently added, high rank
+1. Clone or download this repo
+2. Install in Nuvio as Local Scrapers
+3. Point to `manifest.json`
+4. Each scraper runs independently
 
-### 🟢 PrimeSrc
-- **URL:** `https://primesrc.me/api/v1/`
-- **Embeds:** Filelions, Dood, Streamwish, Filemoon
-- **Format:** Multiple embed servers
+## 📝 Notes
 
-### 🟤 RGShows
-- **URL:** `https://api.rgshows.ru`
-- **Format:** HLS
-- **Note:** Simple and reliable
+- All scrapers are **standalone** (no npm dependencies)
+- TMDB IDs are used as primary identifiers
+- Scrapers gracefully handle API failures and return empty results
+- XPrime player URL: `https://xk4l.mzt4pr8wlkxnv0qsha5g.website/watch/{tmdbId}`
 
-## ⚠️ Skipped / Disabled Providers
+## 🔄 Changelog
 
-The following P-Stream providers were intentionally skipped:
+### v2.2.0
+- Updated fingerapi.js with multi-endpoint fallback (FedAPI offline)
+- Updated xprime.js with backend.xprime.tv + player fallback
+- Updated manifest.json with current status
 
-| Provider | Reason |
-|---|---|
-| multiembed | Disabled in source |
-| vidify | Disabled in source |
-| coitus/autoembed+ | Disabled in source |
-| m4ufree | Requires CryptoJS/AES decryption |
-| movies4f | Requires Cheerio HTML scraping |
-| pirxcy | Disabled (dev requested removal) |
-| vidnest / vidrock | Disabled / complex crypto |
-| streambox / turbovid | Disabled in source |
-| nunflix | Requires browser localStorage token |
-
-## 🔑 API Key
-
-This addon was built using API key: `20bf0a5cbc307e7889137457fa5b6b37`
-
----
-
-Built from [P-Stream](https://pstream.net) provider sources.
+### v2.1.0
+- Added all 5 providers
+- Initial working scrapers
