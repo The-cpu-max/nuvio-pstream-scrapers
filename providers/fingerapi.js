@@ -1,142 +1,160 @@
-// 🔥 Finger API Scraper for Nuvio Local Scrapers
+// 🔴 Finger API Scraper for Nuvio Local Scrapers
 // P-Stream FedAPI provider - Movies & TV Shows
-// Standalone (no external dependencies)
+// STATUS: FedAPI endpoints currently offline - code preserved for when API returns
+// Last known working: fed-api-db.pstream.mov, fedapi.xyz
 
 const TMDB_API_KEY = "20bf0a5cbc307e7889137457fa5b6b37";
-const FEDAPI_BASE = "https://fedapi.xyz/api";
+
+// Known FedAPI endpoints (try in order)
+const FEDAPI_ENDPOINTS = [
+  "https://fed-api-db.pstream.mov",
+  "https://fed-api.pstream.org",
+  "https://fed-airdate.pstream.mov",
+  "https://fedapi.xyz/api",
+  "https://mznxiwqjdiq00239q.space",
+];
 
 const DEFAULT_HEADERS = {
-  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
+  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
   "Accept": "application/json, */*",
   "Accept-Language": "en-US,en;q=0.5",
   "Connection": "keep-alive"
 };
 
-function makeRequest(url, options = {}) {
-  const headers = { ...DEFAULT_HEADERS, ...(options.headers || {}) };
-  return fetch(url, {
-    method: options.method || "GET",
-    headers,
-    ...options
-  }).then(res => {
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    return res;
-  }).catch(err => {
-    console.error("[FingerAPI] Request failed: " + url + " - " + err.message);
-    throw err;
-  });
-}
-
-function getTmdbInfo(tmdbId, mediaType) {
-  const type = mediaType === "tv" ? "tv" : "movie";
-  const url = "https://api.themoviedb.org/3/" + type + "/" + tmdbId + "?api_key=" + TMDB_API_KEY;
-  return makeRequest(url)
-    .then(res => res.json())
-    .then(data => ({
-      title: mediaType === "tv" ? data.name : data.title,
-      year: mediaType === "tv"
-        ? (data.first_air_date || "").substring(0, 4)
-        : (data.release_date || "").substring(0, 4)
-    }));
-}
-
-function getStreams(tmdbId, mediaType, seasonNum, episodeNum) {
-  console.log("[FingerAPI] Fetching: " + tmdbId + " type=" + mediaType);
-
-  return getTmdbInfo(tmdbId, mediaType)
-    .then(info => {
-      let apiUrl;
-      if (mediaType === "tv") {
-        apiUrl = FEDAPI_BASE + "/tv/" + tmdbId + "/" + seasonNum + "/" + episodeNum;
-      } else {
-        apiUrl = FEDAPI_BASE + "/movie/" + tmdbId;
-      }
-
-      console.log("[FingerAPI] Calling: " + apiUrl);
-
-      return makeRequest(apiUrl, {
-        headers: { Referer: "https://fedapi.xyz/", Origin: "https://fedapi.xyz" }
-      })
-      .then(res => res.json())
-      .then(data => {
-        const streams = [];
-        const label = mediaType === "tv"
-          ? info.title + " S" + String(seasonNum).padStart(2,"0") + "E" + String(episodeNum).padStart(2,"0")
-          : info.title + (info.year ? " (" + info.year + ")" : "");
-
-        // Handle sources array from FedAPI
-        if (data && data.sources && Array.isArray(data.sources)) {
-          data.sources.forEach((src, i) => {
-            if (src.url) {
-              const quality = src.quality || src.label || "Auto";
-              streams.push({
-                name: "🔥 Finger API - " + quality,
-                title: label,
-                url: src.url,
-                quality: quality,
-                size: "Unknown",
-                headers: DEFAULT_HEADERS,
-                provider: "fingerapi"
-              });
-            }
-          });
-        }
-
-        // Handle stream object with qualities
-        if (data && data.stream && data.stream.qualities) {
-          Object.entries(data.stream.qualities).forEach(([q, qData]) => {
-            if (qData && qData.url) {
-              streams.push({
-                name: "🔥 Finger API - " + q,
-                title: label,
-                url: qData.url,
-                quality: q,
-                size: "Unknown",
-                headers: DEFAULT_HEADERS,
-                provider: "fingerapi"
-              });
-            }
-          });
-        }
-
-        // Handle single url
-        if (data && data.url && streams.length === 0) {
-          streams.push({
-            name: "🔥 Finger API - Auto",
-            title: label,
-            url: data.url,
-            quality: "Auto",
-            size: "Unknown",
-            headers: DEFAULT_HEADERS,
-            provider: "fingerapi"
-          });
-        }
-
-        // Handle m3u8 playlist
-        if (data && data.stream && data.stream.playlist && streams.length === 0) {
-          streams.push({
-            name: "🔥 Finger API - Auto",
-            title: label,
-            url: data.stream.playlist,
-            quality: "Auto",
-            size: "Unknown",
-            headers: DEFAULT_HEADERS,
-            provider: "fingerapi"
-          });
-        }
-
-        console.log("[FingerAPI] Found " + streams.length + " streams");
-        return streams;
-      });
-    })
-    .catch(err => {
-      console.error("[FingerAPI] Error: " + err.message);
-      return [];
+async function makeRequest(url, options = {}) {
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers: { ...DEFAULT_HEADERS, ...(options.headers || {}) },
+      signal: AbortSignal.timeout(10000)
     });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return await response.json();
+  } catch (err) {
+    return null;
+  }
 }
 
-if (typeof module !== "undefined" && module.exports) {
-  module.exports = { getStreams };
-} else {
-  global.FingerAPIScraperModule = { getStreams };
+async function findWorkingEndpoint(path) {
+  for (const base of FEDAPI_ENDPOINTS) {
+    const url = `${base}${path}`;
+    const data = await makeRequest(url);
+    if (data && (data.url || data.streams || Array.isArray(data))) {
+      return { data, baseUrl: base };
+    }
+  }
+  return null;
 }
+
+async function getTmdbInfo(tmdbId, type) {
+  const endpoint = type === "movie"
+    ? `https://api.themoviedb.org/3/movie/${tmdbId}?api_key=${TMDB_API_KEY}`
+    : `https://api.themoviedb.org/3/tv/${tmdbId}?api_key=${TMDB_API_KEY}`;
+  return await makeRequest(endpoint);
+}
+
+function parseStreams(data, source) {
+  const results = [];
+  
+  if (!data) return results;
+  
+  // Handle array format
+  if (Array.isArray(data)) {
+    for (const item of data) {
+      if (item.url) {
+        results.push({
+          name: `FedAPI - ${item.quality || item.label || "Unknown"} [${source}]`,
+          url: item.url,
+          quality: item.quality || item.label || "Unknown",
+          type: item.type || "hls",
+          subtitles: item.subtitles || item.tracks || []
+        });
+      }
+    }
+    return results;
+  }
+  
+  // Handle object with url
+  if (data.url) {
+    results.push({
+      name: `FedAPI - Auto [${source}]`,
+      url: data.url,
+      quality: data.quality || "Auto",
+      type: data.type || "hls",
+      subtitles: data.subtitles || data.tracks || []
+    });
+  }
+  
+  // Handle object with streams array
+  if (data.streams && Array.isArray(data.streams)) {
+    for (const stream of data.streams) {
+      if (stream.url) {
+        results.push({
+          name: `FedAPI - ${stream.quality || stream.label || "Unknown"} [${source}]`,
+          url: stream.url,
+          quality: stream.quality || stream.label || "Unknown",
+          type: stream.type || "hls",
+          subtitles: stream.subtitles || stream.tracks || []
+        });
+      }
+    }
+  }
+  
+  return results;
+}
+
+async function getStreams(meta) {
+  try {
+    const { type, id, season, episode } = meta;
+    
+    // Extract TMDB ID from Stremio/Nuvio id format
+    let tmdbId = id;
+    if (id && id.startsWith("tmdb:")) {
+      tmdbId = id.replace("tmdb:", "");
+    } else if (id && id.includes(":")) {
+      // tt1234567 format - need to get TMDB id
+      const parts = id.split(":");
+      tmdbId = parts[0];
+    }
+    
+    let path;
+    if (type === "movie") {
+      path = `/movie/${tmdbId}`;
+    } else if (type === "series") {
+      path = `/tv/${tmdbId}/${season}/${episode}`;
+    } else {
+      return { streams: [] };
+    }
+    
+    const result = await findWorkingEndpoint(path);
+    
+    if (!result) {
+      console.log("[FingerprintAPI] All endpoints offline or returned no data");
+      return { streams: [] };
+    }
+    
+    const streams = parseStreams(result.data, result.baseUrl);
+    
+    // Format for Nuvio
+    const nuvioStreams = streams.map(stream => ({
+      name: stream.name,
+      url: stream.url,
+      behaviorHints: {
+        notWebReady: false,
+        bingeGroup: `fingerapi-${tmdbId}`
+      },
+      subtitles: stream.subtitles.map(sub => ({
+        url: sub.file || sub.url || sub.src || "",
+        lang: sub.label || sub.language || sub.lang || "Unknown"
+      })).filter(s => s.url)
+    }));
+    
+    return { streams: nuvioStreams };
+    
+  } catch (err) {
+    console.error("[FingerprintAPI] Error:", err.message);
+    return { streams: [] };
+  }
+}
+
+module.exports = { getStreams };
