@@ -1,6 +1,6 @@
 {
   "name": "P-Stream Scrapers",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "scrapers": [
     {
       "id": "fingerapi",
@@ -11,22 +11,51 @@
       "supportedTypes": ["movie", "tv"],
       "filename": "providers/fingerapi.js",
       "enabled": true,
-      "formats": ["mp4", "m3u8"],
-      "logo": "https://pstream.net/favicon.ico",
-      "contentLanguage": ["en"]
+      "rank": 300
     },
     {
       "id": "xprime",
-      "name": "🤝 xprime.tv",
-      "description": "xprime.tv - Movies & TV Shows multi-quality streams",
+      "name": "XPrime",
+      "description": "xprime.tv - Multi-quality streams",
       "version": "1.0.0",
       "author": "P-Stream Team",
       "supportedTypes": ["movie", "tv"],
       "filename": "providers/xprime.js",
       "enabled": true,
-      "formats": ["mp4", "m3u8"],
-      "logo": "https://xprime.tv/favicon.ico",
-      "contentLanguage": ["en"]
+      "rank": 200
+    },
+    {
+      "id": "vidlink",
+      "name": "VidLink 🔥",
+      "description": "VidLink - High quality streams via encrypted TMDB ID",
+      "version": "1.0.0",
+      "author": "P-Stream Team",
+      "supportedTypes": ["movie", "tv"],
+      "filename": "providers/vidlink.js",
+      "enabled": true,
+      "rank": 310
+    },
+    {
+      "id": "primesrc",
+      "name": "PrimeSrc",
+      "description": "PrimeSrc - Multiple embed servers (Filelions, Dood, Streamwish, Filemoon)",
+      "version": "1.0.0",
+      "author": "P-Stream Team",
+      "supportedTypes": ["movie", "tv"],
+      "filename": "providers/primesrc.js",
+      "enabled": true,
+      "rank": 168
+    },
+    {
+      "id": "rgshows",
+      "name": "RGShows",
+      "description": "RGShows - HLS streams for movies and TV shows",
+      "version": "1.0.0",
+      "author": "P-Stream Team",
+      "supportedTypes": ["movie", "tv"],
+      "filename": "providers/rgshows.js",
+      "enabled": true,
+      "rank": 176
     }
   ]
 }
