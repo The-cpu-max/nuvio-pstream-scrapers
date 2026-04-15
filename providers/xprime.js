@@ -1,7 +1,5 @@
 // 🤝 xprime.tv Scraper for Nuvio Local Scrapers
 // XPrime streaming provider - Movies & TV Shows
-// Backend: backend.xprime.tv with verification token
-// Player domain: xk4l.mzt4pr8wlkxnv0qsha5g.website
 
 const TMDB_API_KEY = "20bf0a5cbc307e7889137457fa5b6b37";
 const XPRIME_BACKEND = "https://backend.xprime.tv";
@@ -16,151 +14,105 @@ const DEFAULT_HEADERS = {
   "Connection": "keep-alive"
 };
 
-async function makeRequest(url, options = {}) {
-  try {
-    const response = await fetch(url, {
-      ...options,
-      headers: { ...DEFAULT_HEADERS, ...(options.headers || {}) },
-      signal: AbortSignal.timeout(15000)
-    });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+function makeRequest(url, options) {
+  options = options || {};
+  var headers = Object.assign({}, DEFAULT_HEADERS, options.headers || {});
+  return fetch(url, {
+    method: options.method || "GET",
+    headers: headers
+  }).then(function(response) {
+    if (!response.ok) throw new Error("HTTP " + response.status);
     return response;
-  } catch (err) {
-    console.error(`[xprime] Request failed: ${url} - ${err.message}`);
+  }).catch(function(err) {
+    console.error("[xprime] Request failed: " + url + " - " + err.message);
     return null;
-  }
+  });
 }
 
-async function getTmdbInfo(tmdbId, mediaType) {
-  const type = mediaType === "tv" ? "tv" : "movie";
-  const url = `https://api.themoviedb.org/3/${type}/${tmdbId}?api_key=${TMDB_API_KEY}`;
-  const res = await makeRequest(url);
-  if (!res) return null;
-  return res.json();
-}
-
-async function getVerificationToken() {
-  // The xprime player page contains a verification token in localStorage or cookies
-  // We fetch the main page to get any session tokens
-  try {
-    const res = await makeRequest(`${XPRIME_PLAYER}/watch/550`, {
-      headers: {
-        ...DEFAULT_HEADERS,
-        "Referer": "https://xprime.stream/"
-      }
-    });
+function getTmdbInfo(tmdbId, mediaType) {
+  var url = "https://api.themoviedb.org/3/" + (mediaType === "tv" ? "tv" : "movie") + "/" + tmdbId + "?api_key=" + TMDB_API_KEY;
+  return makeRequest(url).then(function(res) {
     if (!res) return null;
-    const html = await res.text();
-    // Extract token from script or cookie
-    const tokenMatch = html.match(/["']token["']:\s*["']([^"']+)["']/) ||
-                       html.match(/verification[_-]?token["']?\s*[:=]\s*["']([^"']+)["']/);
-    if (tokenMatch) return tokenMatch[1];
-    return null;
-  } catch (e) {
-    return null;
-  }
+    return res.json();
+  }).then(function(data) {
+    if (!data) return { title: "", year: "" };
+    var title = mediaType === "tv" ? data.name : data.title;
+    var year = mediaType === "tv" ? (data.first_air_date || "").substring(0, 4) : (data.release_date || "").substring(0, 4);
+    return { title: title || "", year: year || "" };
+  });
 }
 
-async function getStreamsFromBackend(tmdbId, type, name, season, episode) {
-  try {
-    let url;
-    if (type === "movie") {
-      url = `${XPRIME_BACKEND}/primebox?id=${tmdbId}&type=movie&name=${encodeURIComponent(name || "")}`;
-    } else {
-      url = `${XPRIME_BACKEND}/primebox?id=${tmdbId}&type=tv&name=${encodeURIComponent(name || "")}&season=${season}&episode=${episode}`;
-    }
-    
-    const res = await makeRequest(url);
+function getStreamsFromBackend(tmdbId, mediaType, name, seasonNum, episodeNum) {
+  var url = mediaType === "movie"
+    ? XPRIME_BACKEND + "/primebox?id=" + tmdbId + "&type=movie&name=" + encodeURIComponent(name || "")
+    : XPRIME_BACKEND + "/primebox?id=" + tmdbId + "&type=tv&name=" + encodeURIComponent(name || "") + "&season=" + seasonNum + "&episode=" + episodeNum;
+
+  return makeRequest(url).then(function(res) {
     if (!res) return null;
-    const data = await res.json();
-    return data;
-  } catch (e) {
-    return null;
-  }
+    return res.json();
+  }).catch(function() { return null; });
 }
 
-async function getStreams(meta) {
-  try {
-    const { type, id, season, episode } = meta;
-    
-    // Parse TMDB ID
-    let tmdbId = id;
-    if (id && id.startsWith("tmdb:")) {
-      tmdbId = id.replace("tmdb:", "");
-    } else if (id && id.startsWith("tt")) {
-      // IMDB id - need TMDB lookup (skip for now)
-      return { streams: [] };
-    }
-    
-    const mediaType = type === "series" ? "tv" : "movie";
-    
-    // Get title from TMDB for the name parameter
-    let title = "";
-    try {
-      const tmdbData = await getTmdbInfo(tmdbId, mediaType);
-      if (tmdbData) {
-        title = tmdbData.title || tmdbData.name || "";
-      }
-    } catch (e) {}
-    
-    // Try backend API first (requires verification token)
-    const backendData = await getStreamsFromBackend(
-      tmdbId, mediaType, title,
-      season || 1, episode || 1
-    );
-    
-    const streams = [];
-    
+// FIX: Unified signature (tmdbId, mediaType, seasonNum, episodeNum) — returns plain array
+function getStreams(tmdbId, mediaType, seasonNum, episodeNum) {
+  mediaType = mediaType || "movie";
+  console.log("[xprime] Fetching: " + tmdbId + " type=" + mediaType);
+
+  return getTmdbInfo(tmdbId, mediaType).then(function(tmdbInfo) {
+    var title = (tmdbInfo && tmdbInfo.title) || "";
+    return getStreamsFromBackend(tmdbId, mediaType, title, seasonNum || 1, episodeNum || 1);
+  }).then(function(backendData) {
+    var streams = [];
+
     if (backendData) {
-      // Process backend response
-      const sources = Array.isArray(backendData) ? backendData :
-                      backendData.streams ? backendData.streams :
-                      backendData.url ? [backendData] : [];
-      
-      for (const src of sources) {
+      var sources = Array.isArray(backendData) ? backendData
+        : backendData.streams ? backendData.streams
+        : backendData.url ? [backendData] : [];
+
+      sources.forEach(function(src) {
         if (src.url) {
           streams.push({
-            name: `XPrime - ${src.quality || src.label || "Auto"} [backend]`,
+            name: "XPrime - " + (src.quality || src.label || "Auto") + " [backend]",
             url: src.url,
-            behaviorHints: {
-              notWebReady: false,
-              bingeGroup: `xprime-${tmdbId}`
-            },
-            subtitles: (src.subtitles || src.tracks || []).map(sub => ({
-              url: sub.file || sub.url || sub.src || "",
-              lang: sub.label || sub.language || sub.lang || "Unknown"
-            })).filter(s => s.url)
+            quality: src.quality || "Auto",
+            size: "Unknown",
+            headers: DEFAULT_HEADERS,
+            provider: "xprime",
+            subtitles: (src.subtitles || src.tracks || []).map(function(sub) {
+              return { url: sub.file || sub.url || sub.src || "", lang: sub.label || sub.language || "Unknown" };
+            }).filter(function(s) { return s.url; })
           });
         }
-      }
+      });
     }
-    
-    // Fallback: direct player embed URL (works in Nuvio web view)
+
+    // Fallback: player embed URL
     if (streams.length === 0) {
-      let playerUrl;
-      if (mediaType === "movie") {
-        playerUrl = `${XPRIME_PLAYER}/watch/${tmdbId}`;
-      } else {
-        playerUrl = `${XPRIME_PLAYER}/watch/t${tmdbId}/${season || 1}/${episode || 1}`;
-      }
-      
+      var playerUrl = mediaType === "movie"
+        ? XPRIME_PLAYER + "/watch/" + tmdbId
+        : XPRIME_PLAYER + "/watch/t" + tmdbId + "/" + (seasonNum || 1) + "/" + (episodeNum || 1);
+
       streams.push({
-        name: `XPrime - Auto [player]`,
+        name: "XPrime - Auto [player]",
         url: playerUrl,
-        behaviorHints: {
-          notWebReady: true,
-          bingeGroup: `xprime-${tmdbId}`
-        },
+        quality: "Auto",
+        size: "Unknown",
+        headers: {},
+        provider: "xprime",
         subtitles: []
       });
     }
-    
-    return { streams };
-    
-  } catch (err) {
-    console.error("[xprime] Error:", err.message);
-    return { streams: [] };
-  }
+
+    console.log("[xprime] Found " + streams.length + " streams");
+    return streams;
+  }).catch(function(err) {
+    console.error("[xprime] Error: " + err.message);
+    return [];
+  });
 }
 
-module.exports = { getStreams };
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = { getStreams: getStreams };
+} else {
+  global.XPrimeScraperModule = { getStreams: getStreams };
+}
