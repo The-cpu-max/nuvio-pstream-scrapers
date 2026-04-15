@@ -39,7 +39,7 @@
       "enabled": true,
       "formats": ["mp4", "m3u8"],
       "contentLanguage": ["en"],
-      "rank": 100
+      "rank": 310
     },
     {
       "id": "primesrc",
