@@ -1,12 +1,12 @@
 {
   "name": "P-Stream Scrapers",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "scrapers": [
     {
-      "id": "fingerapi",
-      "name": "🔴 Finger API",
+      "id": "pstream",
+      "name": "P-Stream",
       "description": "P-Stream Finger API - Movies & TV Shows (English) [API currently offline - multi-endpoint fallback]",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "author": "P-Stream Team",
       "supportedTypes": ["movie", "tv"],
       "filename": "providers/fingerapi.js",
@@ -16,10 +16,10 @@
       "rank": 300
     },
     {
-      "id": "xprime",
-      "name": "XPrime",
+      "id": "pstream",
+      "name": "P-Stream",
       "description": "xprime.stream - Multi-quality streams via backend.xprime.tv",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "author": "P-Stream Team",
       "supportedTypes": ["movie", "tv"],
       "filename": "providers/xprime.js",
@@ -29,10 +29,10 @@
       "rank": 200
     },
     {
-      "id": "vidlink",
-      "name": "VidLink 🔥",
+      "id": "pstream",
+      "name": "P-Stream",
       "description": "VidLink - High quality streams via encrypted TMDB ID",
-      "version": "1.0.0",
+      "version": "1.2.0",
       "author": "P-Stream Team",
       "supportedTypes": ["movie", "tv"],
       "filename": "providers/vidlink.js",
@@ -42,10 +42,10 @@
       "rank": 310
     },
     {
-      "id": "primesrc",
-      "name": "PrimeSrc",
+      "id": "pstream",
+      "name": "P-Stream",
       "description": "PrimeSrc - Alternative streaming source",
-      "version": "1.0.0",
+      "version": "1.2.0",
       "author": "P-Stream Team",
       "supportedTypes": ["movie", "tv"],
       "filename": "providers/primesrc.js",
@@ -55,10 +55,10 @@
       "rank": 150
     },
     {
-      "id": "rgshows",
-      "name": "RGShows",
+      "id": "pstream",
+      "name": "P-Stream",
       "description": "RGShows - Movies & TV Shows",
-      "version": "1.0.0",
+      "version": "1.2.0",
       "author": "P-Stream Team",
       "supportedTypes": ["movie", "tv"],
       "filename": "providers/rgshows.js",
