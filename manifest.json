@@ -1,6 +1,6 @@
 {
   "name": "P-Stream Scrapers",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "scrapers": [
     {
       "id": "pstream",
@@ -66,6 +66,19 @@
       "formats": ["mp4", "m3u8"],
       "contentLanguage": ["en"],
       "rank": 120
+    },
+    {
+      "id": "xprimesu",
+      "name": "XPrime.su",
+      "description": "XPrime.su - 7 servers: finger, primebox, king, facile, lighter, fed, eek via backend.xprime.tv",
+      "version": "1.0.0",
+      "author": "P-Stream Team",
+      "supportedTypes": ["movie", "tv"],
+      "filename": "providers/xprimesu.js",
+      "enabled": true,
+      "formats": ["mp4", "m3u8"],
+      "contentLanguage": ["en"],
+      "rank": 350
     }
   ]
 }
