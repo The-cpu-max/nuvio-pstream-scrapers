@@ -7,6 +7,7 @@ const VIDLINK_HEADERS = {
   "Referer": "https://vidlink.pro/",
   "Origin": "https://vidlink.pro"
 };
+
 function makeRequest(url, options) {
   options = options || {};
   var defaultHeaders = {
@@ -31,24 +32,47 @@ function makeRequest(url, options) {
     throw error;
   });
 }
+
+function getStreamInfo(url, knownQuality) {
+  return fetch(url, { method: 'HEAD', headers: VIDLINK_HEADERS })
+    .then(function(r) {
+      var sizeBytes = r.headers.get('content-length');
+      var size = sizeBytes ? (parseInt(sizeBytes) / (1024 * 1024 * 1024)).toFixed(2) + ' GB' : 'Unknown';
+      var quality = knownQuality || deriveQuality(url);
+      var filename = decodeURIComponent(url.split('/').pop().split('?')[0]) || 'stream.mp4';
+      return { size: size, quality: quality, filename: filename };
+    })
+    .catch(function() {
+      return { size: 'Unknown', quality: knownQuality || deriveQuality(url), filename: decodeURIComponent(url.split('/').pop().split('?')[0]) || 'stream.mp4' };
+    });
+}
+
+function deriveQuality(url) {
+  if (url.includes('2160') || url.includes('4k')) return '4K';
+  if (url.includes('1080')) return '1080p';
+  if (url.includes('720')) return '720p';
+  if (url.includes('480')) return '480p';
+  return 'Auto';
+}
+
 function getTmdbInfo(tmdbId, mediaType) {
   var url = "https://api.themoviedb.org/3/" + (mediaType === "tv" ? "tv" : "movie") + "/" + tmdbId + "?api_key=" + TMDB_API_KEY;
-  return makeRequest(url).then(function(r) {
-    return r.json();
-  }).then(function(data) {
+  return makeRequest(url).then(function(r) { return r.json(); }).then(function(data) {
     var title = mediaType === "tv" ? data.name : data.title;
     var year = mediaType === "tv" ? (data.first_air_date || "").substring(0, 4) : (data.release_date || "").substring(0, 4);
     return { title, year };
   });
 }
+
 function encryptTmdbId(tmdbId) {
-  return makeRequest(ENC_DEC_API + "/enc-vidlink?text=" + tmdbId).then(function(r) {
-    return r.json();
-  }).then(function(data) {
-    if (data && data.result) return data.result;
-    throw new Error("Invalid encryption response");
-  });
+  return makeRequest(ENC_DEC_API + "/enc-vidlink?text=" + tmdbId)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data && data.result) return data.result;
+      throw new Error("Invalid encryption response");
+    });
 }
+
 function getQualityFromKey(key) {
   if (!key) return "Auto";
   var k = key.toString().toLowerCase();
@@ -59,6 +83,7 @@ function getQualityFromKey(key) {
   if (k === "360" || k === "360p") return "360p";
   return "Auto";
 }
+
 function getStreams(tmdbId, mediaType, seasonNum, episodeNum) {
   mediaType = mediaType || "movie";
   console.log("[Vidlink] Fetching: " + tmdbId + " type=" + mediaType);
@@ -74,7 +99,7 @@ function getStreams(tmdbId, mediaType, seasonNum, episodeNum) {
       return makeRequest(vidlinkUrl, { headers: VIDLINK_HEADERS }).then(function(r) {
         return r.json();
       }).then(function(data) {
-        var streams = [];
+        var rawStreams = [];
         var label;
         if (mediaType === "tv" && seasonNum && episodeNum) {
           label = tmdbInfo.title + " S" + String(seasonNum).padStart(2, "0") + "E" + String(episodeNum).padStart(2, "0");
@@ -86,32 +111,28 @@ function getStreams(tmdbId, mediaType, seasonNum, episodeNum) {
             Object.keys(data.stream.qualities).forEach(function(qualityKey) {
               var qData = data.stream.qualities[qualityKey];
               if (qData && qData.url) {
-                streams.push({
-                  name: "VidLink - " + getQualityFromKey(qualityKey),
-                  title: label,
-                  url: qData.url,
-                  quality: getQualityFromKey(qualityKey),
-                  size: "Unknown",
-                  headers: VIDLINK_HEADERS,
-                  provider: "vidlink"
-                });
+                rawStreams.push({ url: qData.url, quality: getQualityFromKey(qualityKey), label: label });
               }
             });
           }
-          if (data.stream.playlist && streams.length === 0) {
-            streams.push({
-              name: "VidLink - Auto",
-              title: label,
-              url: data.stream.playlist,
-              quality: "Auto",
-              size: "Unknown",
-              headers: VIDLINK_HEADERS,
-              provider: "vidlink"
-            });
+          if (data.stream.playlist && rawStreams.length === 0) {
+            rawStreams.push({ url: data.stream.playlist, quality: "Auto", label: label });
           }
         }
-        console.log("[Vidlink] Found " + streams.length + " streams");
-        return streams;
+        return Promise.all(rawStreams.map(function(src) {
+          return getStreamInfo(src.url, src.quality).then(function(info) {
+            return {
+              name: "P-Stream | VidLink - " + info.quality,
+              title: src.label,
+              url: src.url,
+              quality: info.quality,
+              size: info.size,
+              filename: info.filename,
+              headers: VIDLINK_HEADERS,
+              provider: "pstream"
+            };
+          });
+        }));
       });
     });
   }).catch(function(error) {
@@ -119,6 +140,7 @@ function getStreams(tmdbId, mediaType, seasonNum, episodeNum) {
     return [];
   });
 }
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = { getStreams };
 } else {
