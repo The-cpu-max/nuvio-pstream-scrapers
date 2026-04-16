@@ -12,6 +12,7 @@ const DEFAULT_HEADERS = {
   "Accept-Language": "en-US,en;q=0.5",
   "Connection": "keep-alive"
 };
+
 function makeRequest(url, options) {
   options = options || {};
   var headers = Object.assign({}, DEFAULT_HEADERS, options.headers || {});
@@ -25,6 +26,34 @@ function makeRequest(url, options) {
     return null;
   });
 }
+
+function getStreamInfo(url) {
+  return fetch(url, { method: 'HEAD', headers: DEFAULT_HEADERS })
+    .then(function(r) {
+      var sizeBytes = r.headers.get('content-length');
+      var size = sizeBytes ? (parseInt(sizeBytes) / (1024 * 1024 * 1024)).toFixed(2) + ' GB' : 'Unknown';
+      var ct = r.headers.get('content-type') || '';
+      var quality;
+      if (ct.includes('2160') || url.includes('2160') || url.includes('4k')) quality = '4K';
+      else if (url.includes('1080')) quality = '1080p';
+      else if (url.includes('720')) quality = '720p';
+      else if (url.includes('480')) quality = '480p';
+      else quality = 'Auto';
+      var filename = decodeURIComponent(url.split('/').pop().split('?')[0]) || 'stream.mp4';
+      return { size: size, quality: quality, filename: filename };
+    })
+    .catch(function() {
+      var quality;
+      if (url.includes('2160') || url.includes('4k')) quality = '4K';
+      else if (url.includes('1080')) quality = '1080p';
+      else if (url.includes('720')) quality = '720p';
+      else if (url.includes('480')) quality = '480p';
+      else quality = 'Auto';
+      var filename = decodeURIComponent(url.split('/').pop().split('?')[0]) || 'stream.mp4';
+      return { size: 'Unknown', quality: quality, filename: filename };
+    });
+}
+
 function findWorkingEndpoint(path) {
   var index = 0;
   function tryNext() {
@@ -39,52 +68,78 @@ function findWorkingEndpoint(path) {
   }
   return tryNext();
 }
+
 function parseStreams(data, source) {
   var results = [];
   if (!data) return results;
   if (Array.isArray(data)) {
     data.forEach(function(item) {
-      if (item.url) results.push({ name: "FedAPI - " + (item.quality || "Unknown") + " [" + source + "]", url: item.url, subtitles: item.subtitles || item.tracks || [] });
+      if (item.url) results.push({
+        name: "FedAPI - " + (item.quality || "Auto") + " [" + source + "]",
+        url: item.url,
+        quality: item.quality || "Auto",
+        subtitles: item.subtitles || item.tracks || []
+      });
     });
     return results;
   }
-  if (data.url) results.push({ name: "FedAPI - Auto [" + source + "]", url: data.url, subtitles: data.subtitles || data.tracks || [] });
+  if (data.url) results.push({
+    name: "FedAPI - Auto [" + source + "]",
+    url: data.url,
+    quality: "Auto",
+    subtitles: data.subtitles || data.tracks || []
+  });
   if (data.streams && Array.isArray(data.streams)) {
     data.streams.forEach(function(s) {
-      if (s.url) results.push({ name: "FedAPI - " + (s.quality || "Unknown") + " [" + source + "]", url: s.url, subtitles: s.subtitles || s.tracks || [] });
+      if (s.url) results.push({
+        name: "FedAPI - " + (s.quality || "Auto") + " [" + source + "]",
+        url: s.url,
+        quality: s.quality || "Auto",
+        subtitles: s.subtitles || s.tracks || []
+      });
     });
   }
   return results;
 }
+
 function getStreams(tmdbId, mediaType, seasonNum, episodeNum) {
   mediaType = mediaType || "movie";
   console.log("[FingerAPI] Fetching: " + tmdbId + " type=" + mediaType);
-  var path = mediaType === "movie" ? "/movie/" + tmdbId : "/tv/" + tmdbId + "/" + (seasonNum || 1) + "/" + (episodeNum || 1);
+  var path = mediaType === "movie"
+    ? "/movie/" + tmdbId
+    : "/tv/" + tmdbId + "/" + (seasonNum || 1) + "/" + (episodeNum || 1);
   return findWorkingEndpoint(path).then(function(result) {
     if (!result) {
       console.log("[FingerAPI] All endpoints offline");
       return [];
     }
-    return parseStreams(result.data, result.baseUrl).map(function(stream) {
-      return {
-        name: stream.name,
-        url: stream.url,
-        quality: "Auto",
-        size: "Unknown",
-        headers: DEFAULT_HEADERS,
-        provider: "fingerapi",
-        subtitles: (stream.subtitles || []).map(function(sub) {
-          return { url: sub.file || sub.url || sub.src || "", lang: sub.label || sub.language || "Unknown" };
-        }).filter(function(s) {
-          return s.url;
-        })
-      };
-    });
+    var rawStreams = parseStreams(result.data, result.baseUrl);
+    return Promise.all(rawStreams.map(function(stream) {
+      return getStreamInfo(stream.url).then(function(info) {
+        return {
+          name: "P-Stream | FedAPI - " + info.quality,
+          title: info.filename,
+          url: stream.url,
+          quality: info.quality,
+          size: info.size,
+          filename: info.filename,
+          headers: DEFAULT_HEADERS,
+          provider: "pstream",
+          subtitles: (stream.subtitles || []).map(function(sub) {
+            return {
+              url: sub.file || sub.url || sub.src || "",
+              lang: sub.label || sub.language || "Unknown"
+            };
+          }).filter(function(s) { return s.url; })
+        };
+      });
+    }));
   }).catch(function(err) {
     console.error("[FingerAPI] Error: " + err.message);
     return [];
   });
 }
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = { getStreams };
 } else {
