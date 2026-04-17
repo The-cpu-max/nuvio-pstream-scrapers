@@ -1,123 +1,170 @@
-const TMDB_API_KEY = "20bf0a5cbc307e7889137457fa5b6b37";
-const XPRIME_BACKEND = "https://backend.xprime.tv";
-const XPRIME_PLAYER = "https://xk4l.mzt4pr8wlkxnv0qsha5g.website";
-const DEFAULT_HEADERS = {
-  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-  "Accept": "application/json, */*",
-  "Accept-Language": "en-US,en;q=0.5",
-  "Referer": "https://xprime.stream/",
-  "Origin": "https://xprime.stream",
-  "Connection": "keep-alive"
-};
+// XPrime Scraper for Nuvio
+// Source: xprime.su
+// Supports: movies & TV shows
+// Quality: 4K / 1080p / 720p / 480p (prefers highest)
 
-function makeRequest(url, options) {
-  options = options || {};
-  var headers = Object.assign({}, DEFAULT_HEADERS, options.headers || {});
-  return fetch(url, {
-    method: options.method || "GET",
-    headers
-  }).then(function(response) {
-    if (!response.ok) throw new Error("HTTP " + response.status);
-    return response;
-  }).catch(function(err) {
-    console.error("[xprime] Request failed: " + url + " - " + err.message);
-    return null;
-  });
+const XPRIME_BASE = "https://xprime.su";
+const XPRIME_API  = "https://backend.xprime.tv";
+
+// Quality rank — lower = better
+const QUALITY_RANK = { "4k": 0, "2160p": 0, "1080p": 1, "720p": 2, "480p": 3, "360p": 4, "auto": 5 };
+
+function normalizeQuality(str) {
+  if (!str) return "auto";
+  const s = String(str).toLowerCase();
+  if (s.includes("4k") || s.includes("2160")) return "4K";
+  if (s.includes("1080")) return "1080p";
+  if (s.includes("720"))  return "720p";
+  if (s.includes("480"))  return "480p";
+  if (s.includes("360"))  return "360p";
+  return str;
 }
 
-function getStreamInfo(url, knownQuality) {
-  return fetch(url, { method: 'HEAD', headers: DEFAULT_HEADERS })
-    .then(function(r) {
-      var sizeBytes = r.headers.get('content-length');
-      var size = sizeBytes ? (parseInt(sizeBytes) / (1024 * 1024 * 1024)).toFixed(2) + ' GB' : 'Unknown';
-      var quality = knownQuality || deriveQuality(url);
-      var filename = decodeURIComponent(url.split('/').pop().split('?')[0]) || 'stream.mp4';
-      return { size: size, quality: quality, filename: filename };
-    })
-    .catch(function() {
-      var quality = knownQuality || deriveQuality(url);
-      var filename = decodeURIComponent(url.split('/').pop().split('?')[0]) || 'stream.mp4';
-      return { size: 'Unknown', quality: quality, filename: filename };
+function qualityRank(q) {
+  const k = (q || "auto").toLowerCase().replace("p", "");
+  return QUALITY_RANK[k] ?? QUALITY_RANK[q?.toLowerCase()] ?? 5;
+}
+
+function formatBytes(bytes) {
+  if (!bytes || bytes <= 0) return undefined;
+  const units = ["B", "KB", "MB", "GB"];
+  let i = 0, val = bytes;
+  while (val >= 1024 && i < units.length - 1) { val /= 1024; i++; }
+  return `${val.toFixed(1)} ${units[i]}`;
+}
+
+async function getXprimeToken() {
+  try {
+    // Fetch the player page to extract verification token
+    const playerUrl = `${XPRIME_BASE}/`;
+    const res = await fetch(playerUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
+        "Referer": XPRIME_BASE,
+      },
+      signal: AbortSignal.timeout(8000),
     });
+    const html = await res.text();
+
+    // Try to extract token from JS/meta tags
+    const tokenMatch =
+      html.match(/['"](token|api_key|key)['"]\s*:\s*['"]([a-zA-Z0-9_\-]{10,})['"]/i) ||
+      html.match(/token=([a-zA-Z0-9_\-]{10,})/i);
+    return tokenMatch ? tokenMatch[2] || tokenMatch[1] : null;
+  } catch {
+    return null;
+  }
 }
 
-function deriveQuality(url) {
-  if (url.includes('2160') || url.includes('4k')) return '4K';
-  if (url.includes('1080')) return '1080p';
-  if (url.includes('720')) return '720p';
-  if (url.includes('480')) return '480p';
-  return 'Auto';
+async function fetchXprimeStreams(tmdbId, type, season, episode) {
+  const token = await getXprimeToken();
+  const headers = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
+    "Accept": "application/json, text/plain, */*",
+    "Accept-Language": "en-US,en;q=0.5",
+    "Origin": XPRIME_BASE,
+    "Referer": `${XPRIME_BASE}/`,
+  };
+  if (token) headers["x-token"] = token;
+
+  // Build API URL
+  let apiUrl;
+  if (type === "movie") {
+    apiUrl = `${XPRIME_API}/movie?tmdb=${tmdbId}`;
+  } else {
+    apiUrl = `${XPRIME_API}/tv?tmdb=${tmdbId}&season=${season}&episode=${episode}`;
+  }
+
+  const res = await fetch(apiUrl, { headers, signal: AbortSignal.timeout(12000) });
+  if (!res.ok) throw new Error(`XPrime API error: ${res.status}`);
+  return await res.json();
 }
 
-function getTmdbInfo(tmdbId, mediaType) {
-  var url = "https://api.themoviedb.org/3/" + (mediaType === "tv" ? "tv" : "movie") + "/" + tmdbId + "?api_key=" + TMDB_API_KEY;
-  return makeRequest(url).then(function(res) {
-    if (!res) return null;
-    return res.json();
-  }).then(function(data) {
-    if (!data) return { title: "", year: "" };
-    var title = mediaType === "tv" ? data.name : data.title;
-    var year = mediaType === "tv" ? (data.first_air_date || "").substring(0, 4) : (data.release_date || "").substring(0, 4);
-    return { title: title || "", year: year || "" };
-  });
-}
+async function scrape({ tmdbId, type, season, episode, title }) {
+  const streams = [];
 
-function getStreamsFromBackend(tmdbId, mediaType, name, seasonNum, episodeNum) {
-  var url = mediaType === "movie"
-    ? XPRIME_BACKEND + "/primebox?id=" + tmdbId + "&type=movie&name=" + encodeURIComponent(name || "")
-    : XPRIME_BACKEND + "/primebox?id=" + tmdbId + "&type=tv&name=" + encodeURIComponent(name || "") + "&season=" + seasonNum + "&episode=" + episodeNum;
-  return makeRequest(url).then(function(res) {
-    if (!res) return null;
-    return res.json();
-  }).catch(function() { return null; });
-}
+  try {
+    const data = await fetchXprimeStreams(tmdbId, type, season, episode);
 
-function getStreams(tmdbId, mediaType, seasonNum, episodeNum) {
-  mediaType = mediaType || "movie";
-  console.log("[xprime] Fetching: " + tmdbId + " type=" + mediaType);
-  return getTmdbInfo(tmdbId, mediaType).then(function(tmdbInfo) {
-    var title = tmdbInfo && tmdbInfo.title || "";
-    return getStreamsFromBackend(tmdbId, mediaType, title, seasonNum || 1, episodeNum || 1);
-  }).then(function(backendData) {
-    var rawStreams = [];
-    if (backendData) {
-      var sources = Array.isArray(backendData) ? backendData
-        : backendData.streams ? backendData.streams
-        : backendData.url ? [backendData]
-        : [];
-      sources.forEach(function(src) {
-        if (src.url) rawStreams.push({ url: src.url, quality: src.quality || src.label || null });
+    // Handle different API response shapes
+    const sources = data?.sources || data?.streams || data?.links || (Array.isArray(data) ? data : []);
+
+    for (const src of sources) {
+      const url  = src.url || src.stream || src.link || src.file;
+      if (!url) continue;
+
+      const rawQuality = src.quality || src.resolution || src.label || src.size_label || "";
+      const quality    = normalizeQuality(rawQuality);
+      const fileSize   = src.size || src.filesize || src.file_size || null;
+      const fileName   = src.name || src.filename || src.title || `${title || "stream"} [${quality}]`;
+
+      streams.push({
+        url,
+        quality,
+        title:    `${fileName}`,
+        fileName: `${fileName}`,
+        size:     formatBytes(fileSize),
+        // Nuvio metadata fields
+        description: [
+          quality,
+          formatBytes(fileSize) ? `📦 ${formatBytes(fileSize)}` : null,
+        ].filter(Boolean).join(" · "),
+        headers: {
+          "Referer": `${XPRIME_BASE}/`,
+          "Origin":  XPRIME_BASE,
+        },
       });
     }
-    if (rawStreams.length === 0) {
-      var playerUrl = mediaType === "movie"
-        ? XPRIME_PLAYER + "/watch/" + tmdbId
-        : XPRIME_PLAYER + "/watch/t" + tmdbId + "/" + (seasonNum || 1) + "/" + (episodeNum || 1);
-      rawStreams.push({ url: playerUrl, quality: null });
-    }
-    return Promise.all(rawStreams.map(function(src) {
-      return getStreamInfo(src.url, src.quality).then(function(info) {
-        return {
-          name: "P-Stream | XPrime - " + info.quality,
-          title: info.filename,
-          url: src.url,
-          quality: info.quality,
-          size: info.size,
-          filename: info.filename,
-          headers: DEFAULT_HEADERS,
-          provider: "pstream",
-          subtitles: []
-        };
+
+    // Also try direct stream URL patterns xprime uses
+    if (streams.length === 0 && data?.url) {
+      streams.push({
+        url:     data.url,
+        quality: normalizeQuality(data.quality),
+        title:   title || "XPrime Stream",
+        headers: { "Referer": `${XPRIME_BASE}/` },
       });
-    }));
-  }).catch(function(err) {
-    console.error("[xprime] Error: " + err.message);
-    return [];
-  });
+    }
+  } catch (err) {
+    // Fallback: try player page scrape
+    try {
+      const watchUrl = type === "movie"
+        ? `${XPRIME_BASE}/watch/${tmdbId}`
+        : `${XPRIME_BASE}/watch/${tmdbId}/${season}/${episode}`;
+
+      const res  = await fetch(watchUrl, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+          "Referer":    XPRIME_BASE,
+        },
+        signal: AbortSignal.timeout(10000),
+      });
+      const html = await res.text();
+
+      // Extract m3u8 / mp4 URLs from HTML
+      const urlMatches = [...html.matchAll(/["'](https?:\/\/[^"']*\.(m3u8|mp4)[^"']*?)["']/gi)];
+      for (const [, url] of urlMatches) {
+        if (url.includes("xprime") || url.includes("pstream") || url.includes("cdn")) {
+          const quality = url.includes("1080") ? "1080p" : url.includes("720") ? "720p" : "auto";
+          streams.push({
+            url,
+            quality,
+            title:   `${title || "XPrime"} [${quality}]`,
+            headers: { "Referer": `${XPRIME_BASE}/` },
+          });
+        }
+      }
+    } catch {
+      // Silent fallback fail
+    }
+  }
+
+  // Sort by quality (best first)
+  streams.sort((a, b) => qualityRank(a.quality) - qualityRank(b.quality));
+
+  return streams;
 }
 
-if (typeof module !== "undefined" && module.exports) {
-  module.exports = { getStreams };
-} else {
-  global.XPrimeScraperModule = { getStreams };
-}
+module.exports = { scrape };
