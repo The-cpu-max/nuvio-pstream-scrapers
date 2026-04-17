@@ -1,12 +1,12 @@
 {
-  "name": "PStream Scrapers",
-  "version": "3.0.0",
+  "name": "XPrime Scrapers",
+  "version": "3.1.0",
   "scrapers": [
     {
       "id": "xprime",
       "name": "XPrime",
-      "description": "xprime.su — multi-quality streams with file size & name display",
-      "version": "3.0.0",
+      "description": "xprime.su — כל השרתים: finger, primebox, king, facile, lighter, fed, eek",
+      "version": "3.1.0",
       "author": "The-cpu-max",
       "supportedTypes": ["movie", "tv"],
       "filename": "providers/xprime.js",
@@ -14,52 +14,6 @@
       "rank": 200,
       "formats": ["m3u8", "mp4"],
       "logo": "https://xprime.su/favicon.ico",
-      "contentLanguage": ["en"],
-      "showFileSize": true,
-      "showFileName": true
-    },
-    {
-      "id": "pstream",
-      "name": "PStream",
-      "description": "pstream.net — FedAPI with multi-endpoint fallback, 4K/1080p/720p",
-      "version": "3.0.0",
-      "author": "The-cpu-max",
-      "supportedTypes": ["movie", "tv"],
-      "filename": "providers/pstream.js",
-      "enabled": true,
-      "rank": 300,
-      "formats": ["m3u8", "mp4"],
-      "logo": "https://pstream.net/favicon.ico",
-      "contentLanguage": ["en"],
-      "showFileSize": true,
-      "showFileName": true
-    },
-    {
-      "id": "vidlink",
-      "name": "VidLink",
-      "description": "vidlink.pro — encrypted TMDB streams, 4K/1080p/720p",
-      "version": "2.2.0",
-      "author": "The-cpu-max",
-      "supportedTypes": ["movie", "tv"],
-      "filename": "providers/vidlink.js",
-      "enabled": true,
-      "rank": 310,
-      "formats": ["m3u8", "mp4"],
-      "logo": "https://vidlink.pro/favicon.ico",
-      "contentLanguage": ["en"]
-    },
-    {
-      "id": "primesrc",
-      "name": "PrimeSrc",
-      "description": "primesrc.me — multi-embed servers",
-      "version": "2.2.0",
-      "author": "The-cpu-max",
-      "supportedTypes": ["movie", "tv"],
-      "filename": "providers/primesrc.js",
-      "enabled": true,
-      "rank": 168,
-      "formats": ["m3u8", "mp4"],
-      "logo": "https://primesrc.me/favicon.ico",
       "contentLanguage": ["en"]
     }
   ]
